@@ -100,6 +100,13 @@ function startEndSequence(scores) {
     const textContainer = document.getElementById('oracle-text');
 
     setTimeout(() => {
+        // Start Final Music
+        const finalAudio = document.getElementById('final-audio');
+        if (finalAudio) {
+            finalAudio.volume = 1.0;
+            finalAudio.play().catch(e => console.error("Audio play failed:", e));
+        }
+
         typeWriter(textContainer, text, 0);
     }, 2000); // 2s delay for white fade in
 }

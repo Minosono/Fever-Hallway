@@ -110,6 +110,13 @@ async function startGame() {
         console.error("CRITICAL ERROR in startGame:", error);
         alert("Ein Fehler ist aufgetreten: " + error.message);
     }
+
+    // Stop Menu Music
+    const menuAudio = document.getElementById('menu-audio');
+    if (menuAudio) {
+        menuAudio.pause();
+        menuAudio.currentTime = 0;
+    }
 }
 
 function initGang(gangNr) {
@@ -592,3 +599,31 @@ document.addEventListener('keydown', (e) => {
 
 // Init Triggers
 createTriggers();
+
+// --- AUDIO HANDLING ---
+const menuAudio = document.getElementById('menu-audio');
+
+function tryPlayMenuAudio() {
+    if (!menuAudio) return;
+
+    // Attempt play
+    menuAudio.play().catch(error => {
+        console.log("Autoplay blocked. Waiting for interaction.", error);
+
+        // Add interaction listener
+        const enableAudio = () => {
+            // If menu is still visible (game hasn't started), play music
+            // We check 'hidden' class on mainMenu
+            if (mainMenu && !mainMenu.classList.contains('hidden')) {
+                menuAudio.play().catch(e => console.error("Audio still blocked:", e));
+            }
+            // Remove listener after first interaction attempt
+            document.removeEventListener('click', enableAudio);
+        };
+
+        document.addEventListener('click', enableAudio);
+    });
+}
+
+// Try immediately on load
+tryPlayMenuAudio();
