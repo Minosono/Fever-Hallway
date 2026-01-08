@@ -77,21 +77,39 @@ let choiceRight = null;
 // 
 
 async function startGame() {
-    mainMenu.classList.add('hidden');
-    // loading happens before UI overlay is shown
+    console.log("startGame() called");
+    try {
+        // 1. Clean up Video Player (remove <source> tags)
+        // This ensures setting .src works correctly
+        videoPlayer.innerHTML = '';
+        videoPlayer.removeAttribute('src'); // Clear current src if any
+        videoPlayer.load(); // Reset player
 
-    state.currentGang = 1;
-    state.scores = { skeptic: 0, empath: 0, avoider: 0 };
+        mainMenu.classList.add('hidden');
 
-    // Setup Audio
-    videoPlayer.muted = false;
-    videoPlayer.loop = true;
+        // loading happens before UI overlay is shown
+        loadingScreen.classList.remove('hidden');
 
-    // PRELOAD VIDEOS FOR GANG 1
-    await preloadGang(state.currentGang);
+        state.currentGang = 1;
+        state.scores = { skeptic: 0, empath: 0, avoider: 0 };
 
-    uiOverlay.classList.remove('hidden');
-    initGang(state.currentGang);
+        // Setup Audio
+        videoPlayer.muted = false;
+        videoPlayer.loop = true;
+
+        // PRELOAD VIDEOS FOR GANG 1
+        console.log("Starting Preload...");
+        await preloadGang(state.currentGang);
+        console.log("Preload finished.");
+
+        uiOverlay.classList.remove('hidden');
+        console.log("Initializing Gang 1...");
+        initGang(state.currentGang);
+
+    } catch (error) {
+        console.error("CRITICAL ERROR in startGame:", error);
+        alert("Ein Fehler ist aufgetreten: " + error.message);
+    }
 }
 
 function initGang(gangNr) {
@@ -354,6 +372,11 @@ async function nextGang() {
 
 
 function playVideo(filename) {
+    console.log("playVideo called for:", filename);
+
+    // Reset player behavior
+    videoPlayer.loop = (state.currentPhase === 'IDLE');
+
     if (videoCache[filename]) {
         console.log("Playing from Cache:", filename);
         videoPlayer.src = videoCache[filename];
@@ -361,7 +384,15 @@ function playVideo(filename) {
         console.warn("Video not in cache, playing directly:", filename);
         videoPlayer.src = VIDEO_PATH + filename;
     }
-    videoPlayer.play().catch(e => console.error("Play error:", e));
+
+    // Force load to ensure source switch
+    // videoPlayer.load(); // Usually not needed with .src, but harmless if src changed. 
+    // Actually, .play() is enough. But if previous source was <source>, .load() helps? 
+    // We cleared innerHTML in startGame, so it should be fine.
+
+    videoPlayer.play().catch(e => {
+        console.error("Play error for " + filename + ":", e);
+    });
 }
 
 // 
@@ -377,7 +408,7 @@ async function preloadGang(gangNr) {
         return;
     }
 
-    // 2. Show Loading Screen
+    // 2. Show Loading Screen (failsafe)
     loadingScreen.classList.remove('hidden');
     loadingBarFill.style.width = '0%';
     loadingText.innerText = '0%';
