@@ -1,15 +1,18 @@
 <!DOCTYPE html>
 <html lang="de">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Warteraum</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="endLevel.css">
 </head>
+
 <body>
 
     <div id="game-container">
-        
+
         <!-- Dieser Videoplayer wird jetzt für ALLES verwendet: Menü und Spiel -->
         <video id="video-player" autoplay muted loop playsinline>
             <!-- Wir starten mit dem Menü-Video -->
@@ -18,7 +21,7 @@
         </video>
 
         <!-- UI Overlay für die Navigationspfeile (standardmäßig versteckt) -->
-        <div id="ui-overlay" class="hidden"> 
+        <div id="ui-overlay" class="hidden">
             <div id="navigation">
                 <img src="images/arrow_up.png" alt="Pfeil nach oben" class="arrow" id="arrow-up">
                 <img src="images/arrow_left.png" alt="Pfeil nach links" class="arrow" id="arrow-left">
@@ -59,11 +62,19 @@
     <div id="credits-modal" class="hidden">
         <div id="close-credits">✖</div>
         <video id="credits-video" controls>
-             <!-- Hier kommt dein Credits-Video rein -->
+            <!-- Hier kommt dein Credits-Video rein -->
             <source src="videos/credits_making_of.mp4" type="video/mp4">
         </video>
     </div>
 
+    <!-- ### NEU: End Screen Container ### -->
+    <div id="end-screen" class="hidden">
+        <!-- Content will be injected by endLevel.js -->
+    </div>
+
+    <!-- Scripts -->
+    <script src="endLevel.js"></script>
     <script src="game.js"></script>
 </body>
+
 </html>

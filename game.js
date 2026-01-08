@@ -356,9 +356,8 @@ async function nextGang() {
         initGang(state.currentGang);
     } else {
         console.log("Spielende! Keine Config für Gang " + state.currentGang);
-        alert("Ende des Demos. Scores:\nSkeptic: " + state.scores.skeptic + "\nEmpath: " + state.scores.empath + "\nAvoider: " + state.scores.avoider);
-        mainMenu.classList.remove('hidden');
-        uiOverlay.classList.add('hidden');
+        // Start new End Sequence
+        startEndSequence(state.scores);
     }
 }
 
