@@ -1,6 +1,3 @@
-// ===================================================================================
-// CONFIGURATION & STATE
-// ===================================================================================
 
 const state = {
     scores: {
@@ -19,7 +16,6 @@ const state = {
 
     currentPhase: 'START',
 
-    // Metadaten der aktuellen Action
     currentAction: null // { side, id, keyword, isChain, chainDepth (string) }
 };
 
@@ -56,20 +52,15 @@ const ALL_VIDEOS = [
 
 let videoCache = {}; // Stores Blob URLs: { 'Gang1.mp4': 'blob:...' }
 
-// ===================================================================================
+// 
 // DOM ELEMENTS
-// ===================================================================================
+// 
 
 const videoPlayer = document.getElementById('video-player');
 const uiOverlay = document.getElementById('ui-overlay');
 const choicesContainer = document.getElementById('choices-container');
 const mainMenu = document.getElementById('main-menu');
 const startButton = document.getElementById('start-button');
-const creditsButton = document.getElementById('credits-button');
-const creditsModal = document.getElementById('credits-modal');
-const closeCreditsButton = document.getElementById('close-credits');
-
-const creditsVideo = document.getElementById('credits-video');
 
 // Loading Screen Elements
 const loadingScreen = document.getElementById('loading-screen');
@@ -81,9 +72,9 @@ let walkTrigger = null;
 let choiceLeft = null;
 let choiceRight = null;
 
-// ===================================================================================
+// 
 // GAME LOOP & LOGIC
-// ===================================================================================
+// 
 
 async function startGame() {
     mainMenu.classList.add('hidden');
@@ -361,13 +352,6 @@ async function nextGang() {
     }
 }
 
-// ===================================================================================
-// HELPER & TRIGGERS
-// ===================================================================================
-
-// ===================================================================================
-// HELPER & TRIGGERS
-// ===================================================================================
 
 function playVideo(filename) {
     if (videoCache[filename]) {
@@ -380,9 +364,9 @@ function playVideo(filename) {
     videoPlayer.play().catch(e => console.error("Play error:", e));
 }
 
-// ===================================================================================
+// 
 // PRELOADING LOGIC
-// ===================================================================================
+// 
 
 async function preloadGang(gangNr) {
     // 1. Filter videos for this gang
@@ -543,9 +527,9 @@ function toggleVisibility(show) {
     }
 }
 
-// ===================================================================================
+// 
 // STARTUP
-// ===================================================================================
+// 
 
 startButton.addEventListener('click', startGame);
 
@@ -573,22 +557,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-creditsButton.addEventListener('click', () => {
-    creditsModal.classList.remove('hidden');
-    creditsVideo.currentTime = 0;
-    creditsVideo.play();
-    videoPlayer.pause();
-});
 
-closeCreditsButton.addEventListener('click', () => {
-    creditsModal.classList.add('hidden');
-    creditsVideo.pause();
-    if (mainMenu.classList.contains('hidden')) {
-        videoPlayer.play();
-    } else {
-        videoPlayer.play(); // Background Loop
-    }
-});
 
 // Init Triggers
 createTriggers();

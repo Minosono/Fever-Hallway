@@ -150,14 +150,15 @@ html {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 40px;
-    /* Abstand zwischen Logo und Buttons */
+    gap: 20px;
+    /* Kleinerer Abstand für kompakteres Layout */
 }
 
 #menu-logo {
-    max-width: 50%;
-    /* Logo-Größe, kannst du anpassen */
+    max-width: 30%;
+    /* Logo kleiner (war 50%/44%) */
     height: auto;
+    filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.1));
 }
 
 #menu-buttons {
@@ -167,85 +168,21 @@ html {
     align-items: center;
 }
 
-/* Alte .menu-button für textbasierte Buttons war hier; jetzt nutzen wir Bilder */
+/* Button Stile */
 .menu-image {
-    width: clamp(220px, 35vw, 420px);
-    /* responsive Größe */
+    width: clamp(200px, 30vw, 350px);
+    /* Etwas kleiner */
     height: auto;
     cursor: pointer;
-    filter: drop-shadow(0 8px 24px rgba(255, 0, 50, 0.08)) saturate(120%);
     transition: transform 0.25s ease, filter 0.25s ease, opacity 0.25s ease;
-    opacity: 0.95;
+    opacity: 0.9;
     user-select: none;
 }
 
 .menu-image:hover {
-    transform: translateY(-8px) scale(1.02);
-    filter: drop-shadow(0 18px 36px rgba(255, 50, 80, 0.15)) saturate(140%);
+    transform: scale(1.05);
+    filter: brightness(1.2);
     opacity: 1;
-}
-
-/* Options-Button explizit unten positionieren und etwas kleiner machen */
-#options-bottom {
-    position: absolute;
-    left: 50%;
-    bottom: 52px;
-    /* Abstand vom unteren Bildschirmrand – anpassen nach Bedarf */
-    transform: translateX(-50%);
-    pointer-events: auto;
-    z-index: 10;
-}
-
-#options-bottom .menu-image {
-    width: clamp(110px, 16vw, 220px);
-    /* kleiner als die anderen Buttons */
-    opacity: 0.95;
-    transition: transform 0.2s ease, opacity 0.2s ease;
-}
-
-#options-bottom .menu-image:hover {
-    transform: translateY(-4px) scale(1.02);
-    opacity: 1;
-}
-
-/* Falls nötig: Logo etwas verkleinern, damit Platz bleibt */
-#menu-logo {
-    max-width: 44%;
-}
-
-/* ### NEUE STILE FÜR DAS CREDITS-MODAL ### */
-#credits-modal {
-    position: fixed;
-    /* Liegt über der ganzen Seite */
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.85);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 100;
-    /* Stellt sicher, dass es ganz oben ist */
-}
-
-#credits-video {
-    max-width: 80%;
-    max-height: 80%;
-}
-
-#close-credits {
-    position: absolute;
-    top: 30px;
-    right: 40px;
-    font-size: 40px;
-    color: white;
-    cursor: pointer;
-    transition: transform 0.3s ease;
-}
-
-#close-credits:hover {
-    transform: scale(1.2);
 }
 
 /* ### NEUE STILE FÜR DEN LOADING SCREEEN ### */

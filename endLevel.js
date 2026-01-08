@@ -1,5 +1,4 @@
 
-// Texts for the Oracle based on User Roles
 const ORACLE_TEXTS = {
     // High Skeptic
     SKEPTIC: `Du bist der Zweifler.
