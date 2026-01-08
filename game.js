@@ -9,33 +9,52 @@ const state = {
         avoider: 0
     },
     currentGang: 1,
-    // Verfolgt welche Actions wir schon erledigt haben
-    // Struktur: { L: ["L1"], R: ["R1", "R2"] } -> wenn erledigt, aus Array entfernen oder Index hochzählen.
-    // Einfacher: Wir nutzen Queues.
+    // Queues
     queues: {
-        L: [], // Wird beim Start von Gang initiiert
+        L: [],
         R: []
     },
-    completedActions: 0, // Zählt hoch bis totalActions erreicht
+    completedActions: 0,
     totalActions: 0,
 
-    currentPhase: 'START', // START, IDLE, WALK, ACTION, REACTION, FINAL
+    currentPhase: 'START',
 
-    // Für die aktuelle Action merken wir uns Metadaten
-    currentAction: null // { side: 'L', id: '1', keyword: 'Call' }
+    // Metadaten der aktuellen Action
+    currentAction: null // { side, id, keyword, isChain, chainDepth (string) }
 };
 
 // Konfiguration der Gänge
 const gangConfig = {
     1: {
-        keyword: 'Call',
+        keywords: { L: 'Call', R: 'Call' }, // Default keywords
         actionsL: ['1'],     // Gang1CallL1
-        actionsR: ['1', '2'] // Gang1CallR1, Gang1CallR2
+        actionsR: ['1', '2'] // Gang1CallR1...
+    },
+    2: {
+        keywords: { L: 'Call', R: 'Door' },
+        actionsL: ['1', '2'], // Gang2CallL1, Gang2CallL2
+        actionsR: [
+            // id: '1', type: 'chain', next: 'A1' ... 
+            { id: '1', type: 'chain' }
+        ],
+        // Prerequisite: Right side needs Left side to be empty
+        prereqs: {
+            R: { waitFor: 'L', failVideo: 'DoorRno' } // Gang2DoorRno
+        }
     }
-    // Weitere Gänge können hier ergänzt werden
 };
 
 const VIDEO_PATH = 'videos/';
+
+const ALL_VIDEOS = [
+    'Gang1.mp4', 'Gang1CallL1.mp4', 'Gang1CallL1A1.mp4', 'Gang1CallL1A2.mp4', 'Gang1CallLno.mp4',
+    'Gang1CallR1.mp4', 'Gang1CallR1A1.mp4', 'Gang1CallR1A2.mp4', 'Gang1CallR2.mp4', 'Gang1CallR2A1.mp4', 'Gang1CallR2A2.mp4', 'Gang1CallRno.mp4',
+    'Gang1Finale.mp4', 'Gang1Walk.mp4',
+    'Gang2.mp4', 'Gang2CallL1.mp4', 'Gang2CallL1A1.mp4', 'Gang2CallL1A2.mp4', 'Gang2CallL2.mp4', 'Gang2CallL2A1.mp4', 'Gang2CallL2A2.mp4', 'Gang2CallLno.mp4',
+    'Gang2DoorR1.mp4', 'Gang2DoorR1A1.mp4', 'Gang2DoorR1A1A1.mp4', 'Gang2DoorRno.mp4', 'Gang2Finale.mp4', 'Gang2Walk.mp4'
+];
+
+let videoCache = {}; // Stores Blob URLs: { 'Gang1.mp4': 'blob:...' }
 
 // ===================================================================================
 // DOM ELEMENTS
@@ -49,7 +68,13 @@ const startButton = document.getElementById('start-button');
 const creditsButton = document.getElementById('credits-button');
 const creditsModal = document.getElementById('credits-modal');
 const closeCreditsButton = document.getElementById('close-credits');
+
 const creditsVideo = document.getElementById('credits-video');
+
+// Loading Screen Elements
+const loadingScreen = document.getElementById('loading-screen');
+const loadingBarFill = document.getElementById('loading-bar-fill');
+const loadingText = document.getElementById('loading-text');
 
 // Invisible Triggers
 let walkTrigger = null;
@@ -60,9 +85,10 @@ let choiceRight = null;
 // GAME LOOP & LOGIC
 // ===================================================================================
 
-function startGame() {
+async function startGame() {
     mainMenu.classList.add('hidden');
-    uiOverlay.classList.remove('hidden');
+    // loading happens before UI overlay is shown
+
     state.currentGang = 1;
     state.scores = { skeptic: 0, empath: 0, avoider: 0 };
 
@@ -70,6 +96,10 @@ function startGame() {
     videoPlayer.muted = false;
     videoPlayer.loop = true;
 
+    // PRELOAD VIDEOS FOR GANG 1
+    await preloadGang(state.currentGang);
+
+    uiOverlay.classList.remove('hidden');
     initGang(state.currentGang);
 }
 
@@ -80,7 +110,7 @@ function initGang(gangNr) {
     }
 
     const config = gangConfig[gangNr];
-    // Queues kopieren (damit wir sie manipulieren können ohne Config zu ändern)
+    // Queues kopieren
     state.queues.L = [...config.actionsL];
     state.queues.R = [...config.actionsR];
     state.totalActions = config.actionsL.length + config.actionsR.length;
@@ -95,11 +125,6 @@ function enterGangIdle() {
     videoPlayer.loop = true;
     playVideo(`Gang${state.currentGang}.mp4`);
 
-    // Im Idle zeigen wir:
-    // - Walk Check (Mitte)
-    // - Left Action Check (Links)
-    // - Right Action Check (Rechts)
-    // Wir nutzen dieselben Trigger-DIVs, mappen sie aber anders
     showTriggersForIdle(true);
 }
 
@@ -111,7 +136,6 @@ function handleIdleInteraction(type) {
     videoPlayer.loop = false;
 
     if (type === 'WALK') {
-        // Warteanimation / Geradeaus -> Walk Video loopback
         playVideo(`Gang${state.currentGang}Walk.mp4`);
         state.currentPhase = 'WALK_IDLE_TRANSITION';
         videoPlayer.onended = () => {
@@ -121,25 +145,58 @@ function handleIdleInteraction(type) {
     }
 
     if (type === 'L' || type === 'R') {
+        const config = gangConfig[state.currentGang];
+
+        // Check Prereqs
+        if (config.prereqs && config.prereqs[type]) {
+            const prereq = config.prereqs[type];
+            // waitFor: 'L' -> Check ob Queue L leer ist
+            if (state.queues[prereq.waitFor].length > 0) {
+                // Prereq nicht erfüllt!
+                playVideo(`Gang${state.currentGang}${prereq.failVideo}.mp4`);
+                state.currentPhase = 'NO_ACTION';
+                videoPlayer.onended = () => {
+                    enterGangIdle();
+                };
+                return;
+            }
+        }
+
         const queue = state.queues[type];
 
-        // Check if queue has actions left
         if (queue.length > 0) {
-            // Start next action
-            const actionId = queue[0]; // Nimm das nächste, aber entferne es erst wenn fertig? 
-            // Nein, wir entfernen es erst wenn die Action abgeschlossen ist (in Reaction end),
-            // oder jetzt. Ich entferne es hier aus der Queue, damit es "in progress" ist.
-            // Falls man abbricht, müsste man es theoretisch wieder rein tun, aber es gibt kein Abbrechen.
-            queue.shift();
+            // Get Queue Item
+            const item = queue[0];
+            queue.shift(); // Remove from queue
 
-            const keyword = gangConfig[state.currentGang].keyword;
-            state.currentAction = { side: type, id: actionId, keyword: keyword };
+            // Determine keyword
+            let keyword = 'Call'; // default
+            if (config.keywords && config.keywords[type]) keyword = config.keywords[type];
+
+            let actionId = item;
+            let isChain = false;
+
+            // Falls Item ein Objekt ist (Chain definition)
+            if (typeof item === 'object') {
+                actionId = item.id;
+                isChain = item.type === 'chain';
+            }
+
+            state.currentAction = {
+                side: type,
+                id: actionId,
+                keyword: keyword,
+                isChain: isChain,
+                chainStack: [], // Speichert chain progress suffixe (z.B. "A1")
+                originalItem: item // Zum Wiederherstellen bei Fail
+            };
 
             enterAction(state.currentAction);
         } else {
             // Queue empty -> Play "No" video
-            // Bsp: Gang1CallLno.mp4
-            const keyword = gangConfig[state.currentGang].keyword;
+            let keyword = 'Call';
+            if (config.keywords && config.keywords[type]) keyword = config.keywords[type];
+
             const filename = `Gang${state.currentGang}${keyword}${type}no.mp4`;
             playVideo(filename);
 
@@ -155,12 +212,22 @@ function handleIdleInteraction(type) {
 function enterAction(action) {
     state.currentPhase = 'ACTION';
 
-    // Filename: Gang1CallL1.mp4
-    const filename = `Gang${state.currentGang}${action.keyword}${action.side}${action.id}.mp4`;
+    // Filename construction
+    let suffix = '';
+    if (action.isChain && action.chainStack.length > 0) {
+        suffix = action.chainStack.join(''); // z.B. "A1" + "A1" ...
+    }
+
+    const filename = `Gang${state.currentGang}${action.keyword}${action.side}${action.id}${suffix}.mp4`;
     playVideo(filename);
 
-    // Zeige A/B Auswahl
-    showTriggersForAction(true);
+    // UI Logic
+    if (action.isChain) {
+        showChainTrigger(true);
+    } else {
+        // Normal A/B
+        showTriggersForAction(true);
+    }
 
     // Timeout Handler
     videoPlayer.onended = () => {
@@ -172,8 +239,37 @@ function enterAction(action) {
 function handleChoice(selection) { // selection: '1' (A) or '2' (B)
     if (state.currentPhase !== 'ACTION') return;
 
-    showTriggersForAction(false);
     videoPlayer.onended = null; // Timeout clear
+
+    const action = state.currentAction;
+
+    if (action.isChain) {
+        // Chain Logic
+        action.chainStack.push('A1');
+
+        // Quick Fix: Wenn Stack Länge 2 ist ('A1', 'A1'), dann FINALISIEREN.
+        if (action.chainStack.length >= 2) {
+            // Letztes Video spielen: Gang2DoorR1A1A1
+            playVideo(`Gang${state.currentGang}${action.keyword}${action.side}${action.id}${action.chainStack.join('')}.mp4`);
+            state.currentPhase = 'CHAIN_END'; // Warte auf Ende
+            showChainTrigger(false); // Button verstecken nach Finalisierung
+            videoPlayer.onended = () => {
+                // Chain erfolgreich
+                playWalkBack();
+                // Action als Done markieren
+                state.completedActions++;
+            };
+        } else {
+            // Nächster Schritt in der Chain
+            // Hier NICHT showChainTrigger(false) aufrufen, da enterAction den Button anzeigt
+            enterAction(action);
+        }
+
+        return;
+    }
+
+    // Standard Normal Logic
+    showTriggersForAction(false);
     state.currentPhase = 'REACTION';
 
     // Scoring
@@ -194,25 +290,30 @@ function handleChoice(selection) { // selection: '1' (A) or '2' (B)
 function handleTimeout() {
     if (state.currentPhase !== 'ACTION') return;
 
+    const action = state.currentAction;
+
+    if (action.isChain) {
+        // Chain Timeout -> Valid End (User decided to stop/wait)
+        showChainTrigger(false);
+        console.log("Chain Timeout -> Action Complete");
+
+        // Don't unshift. The action is considered done.
+        state.completedActions++;
+        playWalkBack(true); // Check progression (might trigger Finale)
+        return;
+    }
+
+    // Normal Timeout
     showTriggersForAction(false);
     state.currentPhase = 'REACTION';
-
     state.scores.avoider++;
     console.log("Avoider +1 (Timeout)");
 
-    // Fallback: Wenn Timeout, was passiert? 
-    // "Hofft dass das Problem von selbst verschwindet".
-    // Wir spielen einfach die Walk Animation und gehen zurück zum Idle (als ob man weitergeht).
-    // Oder gibt es ein Timeout Video? 
-    // User Request sagt nichts dazu. Ich sende ihn zum Walk.
     playWalkBack();
-
     state.completedActions++;
 }
 
 function playReaction(choiceId) {
-    // Filename: Gang1CallL1A1.mp4 (oder A2)
-    // action: { side, id, keyword }
     const a = state.currentAction;
     const filename = `Gang${state.currentGang}${a.keyword}${a.side}${a.id}A${choiceId}.mp4`;
     playVideo(filename);
@@ -222,48 +323,39 @@ function playReaction(choiceId) {
     };
 }
 
-function playWalkBack() {
-    // "Danach automatisch in den Jeweiligen Gang#Walk und danach automatisch in Gang#"
+function playWalkBack(check = true) {
     playVideo(`Gang${state.currentGang}Walk.mp4`);
 
     videoPlayer.onended = () => {
-        checkProgression();
+        if (check) checkProgression();
+        else enterGangIdle();
     };
 }
 
 // 5. CHECK PROGRESSION
 function checkProgression() {
     // Check if ALL actions are done
-    // L und R Queues müssen leer sein UND wir müssen alles einmal gespielt haben.
-    // Da wir shiften, sind Queues leer wenn alles durch ist.
-
     const allDone = state.queues.L.length === 0 && state.queues.R.length === 0;
 
     if (allDone) {
         // FINALE
-        playVideo(`Gang${state.currentGang}Finale.mp4`); // Oder 'Final'? User sagte Gang1Final (oben) und Gang1Finale (unten). Ich nehme Final.
-        // User text: "Gang#Final" und "Gang1Finale". Ich probiere 'Finale'.
-        // Korrektur: Im Prompt "Gang#Final". Ich nehme `Gang${G}Final.mp4`.
-        // WARTE: Er schrieb "Nach Gang1Finale -> Gang2".
-        // Ich nehme `Gang${G}Final.mp4` basierend auf dem ersten Prompt-Teil.
-
+        playVideo(`Gang${state.currentGang}Finale.mp4`);
         videoPlayer.onended = () => {
             nextGang();
         };
     } else {
-        // Zurück zum Idle
         enterGangIdle();
     }
 }
 
-function nextGang() {
+async function nextGang() {
     state.currentGang++;
-    // Prüfen ob Config existiert
     if (gangConfig[state.currentGang]) {
+        // PRELOAD VIDEOS FOR NEXT GANG
+        await preloadGang(state.currentGang);
         initGang(state.currentGang);
     } else {
         console.log("Spielende! Keine Config für Gang " + state.currentGang);
-        // Spielende Logik (z.B. Score anzeigen oder Credits)
         alert("Ende des Demos. Scores:\nSkeptic: " + state.scores.skeptic + "\nEmpath: " + state.scores.empath + "\nAvoider: " + state.scores.avoider);
         mainMenu.classList.remove('hidden');
         uiOverlay.classList.add('hidden');
@@ -274,11 +366,80 @@ function nextGang() {
 // HELPER & TRIGGERS
 // ===================================================================================
 
+// ===================================================================================
+// HELPER & TRIGGERS
+// ===================================================================================
+
 function playVideo(filename) {
-    // Falls Video nicht existiert, wird der Browser error werfen (404).
-    videoPlayer.src = VIDEO_PATH + filename;
+    if (videoCache[filename]) {
+        console.log("Playing from Cache:", filename);
+        videoPlayer.src = videoCache[filename];
+    } else {
+        console.warn("Video not in cache, playing directly:", filename);
+        videoPlayer.src = VIDEO_PATH + filename;
+    }
     videoPlayer.play().catch(e => console.error("Play error:", e));
-    console.log("Playing:", filename);
+}
+
+// ===================================================================================
+// PRELOADING LOGIC
+// ===================================================================================
+
+async function preloadGang(gangNr) {
+    // 1. Filter videos for this gang
+    const videosToLoad = ALL_VIDEOS.filter(v => v.startsWith(`Gang${gangNr}`));
+
+    if (videosToLoad.length === 0) {
+        console.warn(`No videos found for Gang${gangNr}`);
+        return;
+    }
+
+    // 2. Show Loading Screen
+    loadingScreen.classList.remove('hidden');
+    loadingBarFill.style.width = '0%';
+    loadingText.innerText = '0%';
+
+    let loadedCount = 0;
+    const total = videosToLoad.length;
+
+    // 3. Load videos
+    // We assume sequential loading is safer for bandwidth/performance, 
+    // but parallel is faster. Let's do parallel with Promise.all but track progress.
+
+    const promises = videosToLoad.map(async (filename) => {
+        // Check cache first
+        if (videoCache[filename]) {
+            loadedCount++;
+            updateLoadingUI(loadedCount, total);
+            return;
+        }
+
+        try {
+            const response = await fetch(VIDEO_PATH + filename);
+            if (!response.ok) throw new Error('Network error');
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            videoCache[filename] = url;
+        } catch (err) {
+            console.error(`Failed to load ${filename}:`, err);
+        } finally {
+            loadedCount++;
+            updateLoadingUI(loadedCount, total);
+        }
+    });
+
+    await Promise.all(promises);
+
+    // 4. Hide Loading Screen
+    // Small delay to let user see 100%
+    await new Promise(r => setTimeout(r, 500));
+    loadingScreen.classList.add('hidden');
+}
+
+function updateLoadingUI(current, total) {
+    const percent = Math.floor((current / total) * 100);
+    loadingBarFill.style.width = `${percent}%`;
+    loadingText.innerText = `${percent}%`;
 }
 
 function createTriggers() {
@@ -299,34 +460,73 @@ function createDiv(cls) {
     return d;
 }
 
-// MAPPING FÜR IDLE (Links = Left Action, Rechts = Right Action, Mitte = Walk)
+// Helper for switching Layouts
+function setTriggerLayout(layout) {
+    if (!choiceLeft || !choiceRight) return;
+
+    // Remove positional classes
+    choiceLeft.classList.remove('choice-area-left', 'choice-area-right', 'btn-top', 'btn-bottom');
+    choiceRight.classList.remove('choice-area-left', 'choice-area-right', 'btn-top', 'btn-bottom');
+
+    if (layout === 'IDLE') {
+        choiceLeft.classList.add('choice-area-left');
+        choiceRight.classList.add('choice-area-right');
+    } else if (layout === 'ACTION') {
+        // choiceLeft becomes Top Button
+        choiceLeft.classList.add('btn-top');
+        // choiceRight becomes Bottom Button
+        choiceRight.classList.add('btn-bottom');
+    }
+}
+
+// MAPPING FÜR IDLE
 function showTriggersForIdle(show) {
     if (!walkTrigger) createTriggers();
 
-    // Clear old listeners by cloning (quick & dirty reset) or re-assigning?
-    // Besser: Wir setzen onclick
+    // Ensure Layout is IDLE
+    setTriggerLayout('IDLE');
 
     walkTrigger.onclick = () => handleIdleInteraction('WALK');
     choiceLeft.onclick = () => handleIdleInteraction('L');
     choiceRight.onclick = () => handleIdleInteraction('R');
-
     toggleVisibility(show);
 }
 
-// MAPPING FÜR ACTION (Links = Antwort A(1), Rechts = Antwort B(2))
+// MAPPING FÜR ACTION (Normal A/B)
 function showTriggersForAction(show) {
     if (!walkTrigger) createTriggers();
 
-    // Mitte in Action deaktivieren? User sagte nicht explizit. Normal nur L/R antworten.
-    walkTrigger.onclick = null;
+    // Ensure Layout is ACTION (Top/Bottom)
+    setTriggerLayout('ACTION');
 
-    choiceLeft.onclick = () => handleChoice('1');  // A
-    choiceRight.onclick = () => handleChoice('2'); // B
+    walkTrigger.onclick = null;
+    choiceLeft.onclick = () => handleChoice('1');  // Top Button (A)
+    choiceRight.onclick = () => handleChoice('2'); // Bottom Button (B)
 
     if (show) {
         choiceLeft.classList.remove('hidden');
         choiceRight.classList.remove('hidden');
-        walkTrigger.classList.add('hidden'); // Walk trigger weg bei Choice
+        walkTrigger.classList.add('hidden');
+    } else {
+        toggleVisibility(false);
+    }
+}
+
+// MAPPING FÜR CHAIN (Nur EINEN Button)
+function showChainTrigger(show) {
+    if (!walkTrigger) createTriggers();
+
+    // Use Action Layout (Top Button only)
+    setTriggerLayout('ACTION');
+
+    // Use Left/Top as interaction
+    choiceLeft.onclick = () => handleChoice('CHAIN_NEXT');
+    choiceRight.onclick = null;
+
+    if (show) {
+        choiceLeft.classList.remove('hidden');
+        choiceRight.classList.add('hidden');
+        walkTrigger.classList.add('hidden');
     } else {
         toggleVisibility(false);
     }
@@ -351,14 +551,45 @@ function toggleVisibility(show) {
 startButton.addEventListener('click', startGame);
 
 document.addEventListener('keydown', (e) => {
-    // Keyboard Support für Walk im Idle
-    if (state.currentPhase === 'IDLE' && (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp')) {
-        handleIdleInteraction('WALK');
+    const key = e.key.toLowerCase();
+
+    // Keyboard Support
+    if (state.currentPhase === 'IDLE') {
+        // IDLE: W/Up=Walk, A/Left=L, D/Right=R
+        if (key === 'w' || e.key === 'ArrowUp') handleIdleInteraction('WALK');
+        if (key === 'a' || e.key === 'ArrowLeft') handleIdleInteraction('L');
+        if (key === 'd' || e.key === 'ArrowRight') handleIdleInteraction('R');
+    } else if (state.currentPhase === 'ACTION') {
+        const action = state.currentAction;
+        if (action && action.isChain) {
+            // Chain: Only W/Up/Space/Enter
+            if (key === 'w' || e.key === 'ArrowUp' || key === ' ' || key === 'enter') {
+                handleChoice('CHAIN_NEXT');
+            }
+        } else {
+            // Normal Action: W/Up (Top), S/Down (Bottom)
+            if (key === 'w' || e.key === 'ArrowUp') handleChoice('1');
+            if (key === 's' || e.key === 'ArrowDown') handleChoice('2');
+        }
     }
 });
 
-creditsButton.addEventListener('click', () => { /* ... wie gehabt ... */ });
-closeCreditsButton.addEventListener('click', () => { /* ... wie gehabt ... */ });
+creditsButton.addEventListener('click', () => {
+    creditsModal.classList.remove('hidden');
+    creditsVideo.currentTime = 0;
+    creditsVideo.play();
+    videoPlayer.pause();
+});
+
+closeCreditsButton.addEventListener('click', () => {
+    creditsModal.classList.add('hidden');
+    creditsVideo.pause();
+    if (mainMenu.classList.contains('hidden')) {
+        videoPlayer.play();
+    } else {
+        videoPlayer.play(); // Background Loop
+    }
+});
 
 // Init Triggers
 createTriggers();

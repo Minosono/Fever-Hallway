@@ -1,14 +1,70 @@
 /* Grundlegende Stile (bleiben gleich) */
-body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; font-family: sans-serif; }
-#game-container { position: relative; width: 100%; height: 100%; }
-#video-player { width: 100%; height: 100%; object-fit: cover; }
+body,
+html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #000;
+    font-family: sans-serif;
+}
+
+#game-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    max-width: 177.78vh;
+    /* 16/9 = 1.777 */
+    max-height: 56.25vw;
+    /* 9/16 = 0.5625 */
+    margin: auto;
+    /* Center in viewport */
+    aspect-ratio: 16 / 9;
+}
+
+#video-player {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
 
 /* UI Overlay für Pfeile (unverändert) */
-#ui-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: flex-end; }
-#navigation { display: flex; gap: 20px; margin-bottom: 50px; }
-.arrow { width: 80px; height: auto; opacity: 0.6; cursor: pointer; transition: opacity 0.3s ease; user-select: none; }
-.arrow:hover { opacity: 1; }
-.hidden { display: none !important; }
+#ui-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    pointer-events: none;
+}
+
+#navigation {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 50px;
+    pointer-events: auto;
+}
+
+.arrow {
+    width: 80px;
+    height: auto;
+    opacity: 0.6;
+    cursor: pointer;
+    transition: opacity 0.3s ease;
+    user-select: none;
+}
+
+.arrow:hover {
+    opacity: 1;
+}
+
+.hidden {
+    display: none !important;
+}
 
 /* Unsichtbare Interaktions-Container */
 .invisible-trigger {
@@ -18,31 +74,70 @@ body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
     cursor: pointer;
 }
 
-/* Auswahl A (Links) */
+/* IDLE: Auswahl A (Links - Drittel 1) */
 .choice-area-left {
-    top: 20%;
-    left: 10%;
-    width: 35%;
-    height: 60%;
+    top: 0;
+    left: 0;
+    width: 33.33%;
+    height: 100%;
 }
 
-/* Auswahl B (Rechts) */
-.choice-area-right {
-    top: 20%;
-    right: 10%;
-    width: 35%;
-    height: 60%;
-}
-
-/* Gehen / Weiter (Mitte/Oben) */
+/* IDLE: Gehen / Weiter (Mitte - Drittel 2) */
 .walk-trigger {
-    top: 20%;
-    left: 30%;
-    width: 40%;
-    height: 60%;
+    top: 0;
+    left: 33.33%;
+    width: 33.33%;
+    height: 100%;
 }
-#choices-container { /* ... bleibt gleich ... */ }
-.choice-button { /* ... bleibt gleich ... */ }
+
+/* IDLE: Auswahl B (Rechts - Drittel 3) */
+.choice-area-right {
+    top: 0;
+    left: 66.66%;
+    width: 33.33%;
+    height: 100%;
+}
+
+/* ACTION: Der obere rechte Button */
+.btn-top {
+    top: 20%;
+    /* Abstand von oben */
+    right: 2%;
+    /* Abstand von rechts */
+    width: 22%;
+    /* Breite der Blase relativ zum Bild */
+    height: 26%;
+    /* Höhe der Blase relativ zum Bild */
+}
+
+/* ACTION: Der untere rechte Button */
+.btn-bottom {
+    top: 53%;
+    /* Abstand von oben */
+    right: 3%;
+    /* Abstand von rechts */
+    width: 23%;
+    /* Breite */
+    height: 25%;
+    /* Höhe */
+}
+
+#choices-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+#choices-container>div {
+    pointer-events: auto;
+}
+
+.choice-button {
+    /* ... bleibt gleich ... */
+}
 
 /* ### NEUE STILE FÜR DAS HAUPTMENÜ ### */
 #main-menu {
@@ -55,11 +150,13 @@ body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 40px; /* Abstand zwischen Logo und Buttons */
+    gap: 40px;
+    /* Abstand zwischen Logo und Buttons */
 }
 
 #menu-logo {
-    max-width: 50%; /* Logo-Größe, kannst du anpassen */
+    max-width: 50%;
+    /* Logo-Größe, kannst du anpassen */
     height: auto;
 }
 
@@ -72,7 +169,8 @@ body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 
 /* Alte .menu-button für textbasierte Buttons war hier; jetzt nutzen wir Bilder */
 .menu-image {
-    width: clamp(220px, 35vw, 420px); /* responsive Größe */
+    width: clamp(220px, 35vw, 420px);
+    /* responsive Größe */
     height: auto;
     cursor: pointer;
     filter: drop-shadow(0 8px 24px rgba(255, 0, 50, 0.08)) saturate(120%);
@@ -91,14 +189,16 @@ body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 #options-bottom {
     position: absolute;
     left: 50%;
-    bottom: 52px; /* Abstand vom unteren Bildschirmrand – anpassen nach Bedarf */
+    bottom: 52px;
+    /* Abstand vom unteren Bildschirmrand – anpassen nach Bedarf */
     transform: translateX(-50%);
     pointer-events: auto;
     z-index: 10;
 }
 
 #options-bottom .menu-image {
-    width: clamp(110px, 16vw, 220px); /* kleiner als die anderen Buttons */
+    width: clamp(110px, 16vw, 220px);
+    /* kleiner als die anderen Buttons */
     opacity: 0.95;
     transition: transform 0.2s ease, opacity 0.2s ease;
 }
@@ -115,7 +215,8 @@ body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 
 /* ### NEUE STILE FÜR DAS CREDITS-MODAL ### */
 #credits-modal {
-    position: fixed; /* Liegt über der ganzen Seite */
+    position: fixed;
+    /* Liegt über der ganzen Seite */
     top: 0;
     left: 0;
     width: 100%;
@@ -124,7 +225,8 @@ body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 100; /* Stellt sicher, dass es ganz oben ist */
+    z-index: 100;
+    /* Stellt sicher, dass es ganz oben ist */
 }
 
 #credits-video {
@@ -144,4 +246,54 @@ body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 
 #close-credits:hover {
     transform: scale(1.2);
+}
+
+/* ### NEUE STILE FÜR DEN LOADING SCREEEN ### */
+#loading-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #000;
+    z-index: 200;
+    /* Höher als alles andere */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#loading-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    width: 50%;
+}
+
+#loading-content h2 {
+    color: white;
+    font-size: 2rem;
+    letter-spacing: 2px;
+}
+
+#loading-bar-container {
+    width: 100%;
+    height: 20px;
+    background-color: #333;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+#loading-bar-fill {
+    width: 0%;
+    height: 100%;
+    background-color: #4CAF50;
+    /* Ein schönes Grün */
+    transition: width 0.2s ease;
+}
+
+#loading-text {
+    color: white;
+    font-size: 1.2rem;
 }
