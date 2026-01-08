@@ -152,8 +152,8 @@ function handleIdleInteraction(type) {
     videoPlayer.loop = false;
 
     if (type === 'WALK') {
-        playVideo(`Gang${state.currentGang}Walk.mp4`);
         state.currentPhase = 'WALK_IDLE_TRANSITION';
+        playVideo(`Gang${state.currentGang}Walk.mp4`);
         videoPlayer.onended = () => {
             enterGangIdle();
         };
@@ -169,8 +169,8 @@ function handleIdleInteraction(type) {
             // waitFor: 'L' -> Check ob Queue L leer ist
             if (state.queues[prereq.waitFor].length > 0) {
                 // Prereq nicht erfüllt!
-                playVideo(`Gang${state.currentGang}${prereq.failVideo}.mp4`);
                 state.currentPhase = 'NO_ACTION';
+                playVideo(`Gang${state.currentGang}${prereq.failVideo}.mp4`);
                 videoPlayer.onended = () => {
                     enterGangIdle();
                 };
@@ -214,9 +214,9 @@ function handleIdleInteraction(type) {
             if (config.keywords && config.keywords[type]) keyword = config.keywords[type];
 
             const filename = `Gang${state.currentGang}${keyword}${type}no.mp4`;
+            state.currentPhase = 'NO_ACTION';
             playVideo(filename);
 
-            state.currentPhase = 'NO_ACTION';
             videoPlayer.onended = () => {
                 enterGangIdle();
             };
